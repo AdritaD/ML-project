@@ -1,0 +1,544 @@
+'''
+Rating Prediction Using Reviews (Yelp Dataset)
+-Adrita Dutta(axd172930), Chirag Shahi(cxs180005), Pratima(pxl180030), Santhosh Medide(sxm174930)
+'''
+
+from _future_ import print_function
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import roc_curve, auc
+from sklearn.tree import DecisionTreeClassifier
+print(_doc_)
+
+import pandas as pd
+import numpy
+
+
+df = pd.read_csv(
+    './finalDatsetv3.csv',
+    header=0,
+    names = ['review_id', 'review_stars', 'review_funny_upvotes', 'review_useful_upvotes', 'review_cool_upvotes',
+             'total_tokens', 'compound_score_review', 'noun_count', 'pos_noun_count', 'neg_noun_count', 
+             'neutral_noun_count', 'adverb_count', 'pos_adverb_count', 'neg_adverb_count', 'neutral_adverb_count',
+             'verb_count', 'pos_verb_count', 'neg_verb_count', 'neutral_verb_count', 'adjective_count', 
+             'pos_adjective_count', 'neg_adjective_count', 'neutral_adjective_count', 'tot_pos_words_count', 
+             'tot_neg_words_count', 'tot_neu_words_count', 'user_avg_stars', 'user_yelping_since', 'user_review_count'], 
+    usecols = ['review_stars', 'review_useful_upvotes', 'review_cool_upvotes',
+             'total_tokens', 'compound_score_review', 'noun_count', 
+             'verb_count', 'adjective_count', 'tot_pos_words_count', 
+             'tot_neg_words_count', 'tot_neu_words_count', 'user_avg_stars', 'user_yelping_since', 'user_review_count']
+); 
+
+
+
+#Use this to filter 3stars
+df = df[df.review_stars != 3]
+#print(df.head())
+print("Classes in the data");
+print (set(df['review_stars']));
+df = df.astype('int')
+lst = df.values.tolist();
+
+X = [];
+y = [];
+for ele in lst:
+    X.append(ele[1:]);
+    y.append(ele[0]);
+
+
+# Split the dataset in two equal parts into 80:20 ratio for train:test
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=0)
+
+   
+#-------------------------------GradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+gradientBoostingClassifier = GradientBoostingClassifier()
+tuned_parameters = [{'max_features':['auto','sqrt','log2'],'random_state':[3,4],'n_estimators':[120,130]}]
+
+
+
+#----------------------------------------KNN
+from sklearn import neighbors, linear_model
+tuned_parameters = [{'n_neighbors': [6, 5], 'p': [1,2], 'algorithm':['auto','ball_tree','kd_tree','brute'],'weights':['uniform','distance']}]
+knn = neighbors.KNeighborsClassifier()
+
+
+
+#--------------------------------------Random Forest
+from sklearn.ensemble import RandomForestClassifier
+randomForestClassifier = RandomForestClassifier()
+tuned_parameters = [{'n_estimators': [50, 80, 100], 'max_depth': [90, 120, 150],
+ 'min_samples_split': [30, 50, 80], 'criterion': ['gini', 'entropy']}]
+    
+    
+#---------------------------------------Bagging    
+from sklearn.ensemble import BaggingClassifier
+tuned_parameters = [
+    {
+    'n_estimators': [150,190],
+    'max_samples': [300,500,600],
+    'max_features': [10,12],
+    'random_state': [1, 2]
+    }
+]
+
+
+#-----------------------------------------AdaBoost
+from sklearn.ensemble import AdaBoostClassifier
+adaBoostClassifier = AdaBoostClassifier()
+tuned_parameters = [{'n_estimators':[220,230,225],'learning_rate':[0.5],'algorithm':['SAMME','SAMME.R'],'random_state':[10]}]
+
+
+
+#--------------------------------------NaiveBayes(Gaussian)
+from sklearn.naive_bayes import GaussianNB
+tuned_parameters = [{'priors': [None, (0.05, 0.24, 0.70, 0.01)]}]
+
+
+
+#-------------------------------------DecisionTree
+from sklearn.tree import DecisionTreeClassifier
+tuned_parameters = [
+    {
+    'max_depth': [None, 5, 10],
+    'min_samples_split': [2, 4, 6],
+    'min_samples_leaf': [1, 2, 3],
+    'max_features': [None, "auto", "sqrt", "log2"],
+    'min_impurity_decrease': [0., 0.05, 0.010],
+    'random_state': [1, 2]
+    }
+]
+
+
+
+#-------------------------------------NeuralNeworks
+from sklearn.neural_network import MLPClassifier
+tuned_parameters = [
+    {   
+        'hidden_layer_sizes' : [(10, 2), (20, 2), (2, 20)],  
+        'activation' : ['identity', 'logistic', 'tanh', 'relu'],
+        #'alpha' : [0.0001, 0.001, 0.01],
+        'learning_rate' : ['constant', 'invscaling', 'adaptive'], 
+        'max_iter' : [100, 10],
+        'random_state': [5]
+
+    }
+]
+
+
+
+#-------------------------------------LogisticRegression
+from sklearn.linear_model import LogisticRegression
+tuned_parameters = [
+   { 'penalty':['l1','l2'], 'C':[0.1,0.01,1.0], 'fit_intercept':['True','False'], 'max_iter': [100,200,150] }
+]
+
+
+scores = ['accuracy']
+
+for score in scores:
+    print("# Tuning hyper-parameters for %s" % score)
+    print()
+
+    clf = GridSearchCV(SVC(), tuned_parameters, cv=5,
+                       scoring='%s' % score)
+    clf.fit(X_train, y_train)
+
+    print("Best parameters set found on development set:")
+    print()
+    print(clf.best_params_)
+    print()
+    print("Grid scores on development set:")
+    print()
+    means = clf.cv_results_['mean_test_score']
+    stds = clf.cv_results_['std_test_score']
+    for mean, std, params in zip(means, stds, clf.cv_results_['params']):
+        print("%0.3f (+/-%0.03f) for %r"
+              % (mean, std * 2, params))
+    print()
+
+    print("Detailed classification report:")
+    print()
+    print("The model is trained on the full development set.")
+    print("The scores are computed on the full evaluation set.")
+    print()
+    y_true, y_pred = y_test, clf.predict(X_test)
+    print(classification_report(y_true, y_pred))
+    print("Detailed confusion matrix:")
+    print(confusion_matrix(y_true, y_pred))
+    print("Accuracy Score: \n")
+    print(accuracy_score(y_true, y_pred))
+    
+    print()
+
+
+#---------------------ROC Curves
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import label_binarize
+from sklearn.metrics import roc_curve, auc
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neural_network import MLPClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import BaggingClassifier
+from sklearn.ensemble import AdaBoostClassifier
+
+from sklearn import metrics
+
+import pandas as pd 
+import numpy as np 
+
+df = pd.read_csv(
+    './finalDatsetv3.csv',
+    header=0,
+    names = ['review_id', 'review_stars', 'review_funny_upvotes', 'review_useful_upvotes', 'review_cool_upvotes', 'total_tokens', 'compound_score_review', 'noun_count', 'pos_noun_count', 'neg_noun_count', 'neutral_noun_count', 'adverb_count', 'pos_adverb_count', 'neg_adverb_count', 'neutral_adverb_count', 'verb_count', 'pos_verb_count', 'neg_verb_count', 'neutral_verb_count', 'adjective_count', 'pos_adjective_count', 'neg_adjective_count', 'neutral_adjective_count', 'tot_pos_words_count', 'tot_neg_words_count', 'tot_neu_words_count', 'user_avg_stars', 'user_yelping_since', 'user_review_count'], 
+    usecols = ['review_stars', 'review_useful_upvotes', 'review_cool_upvotes',
+             'total_tokens', 'compound_score_review', 'noun_count', 
+             'verb_count', 'adjective_count', 'tot_pos_words_count', 
+             'tot_neg_words_count', 'tot_neu_words_count', 'user_avg_stars', 'user_yelping_since', 'user_review_count']
+)
+
+df = df[df.review_stars != 3]
+
+X = df.values[:, 1:]
+y = df.values[:, 0]
+
+# Binarize the output
+y = label_binarize(y, classes=[1, 2, 4, 5])
+n_classes = y.shape[1]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.5, random_state=0)
+
+#------------------RF_ROC
+classifier = OneVsRestClassifier(RandomForestClassifier(n_estimators = 80,  max_depth = 90, min_samples_split= 30, criterion = 'gini'))
+
+#----------------NB_ROC
+classifier = OneVsRestClassifier(GaussianNB(priors = (0.5, 0.5)))
+
+#----------------NN_ROC
+classifier = OneVsRestClassifier(MLPClassifier(random_state= 5, activation= 'identity', max_iter= 100, learning_rate= 'constant', hidden_layer_sizes= (10, 2)))
+
+#----------------LR_ROC
+classifier = OneVsRestClassifier(LogisticRegression(C= 0.1, fit_intercept= 'True', max_iter= 100, penalty= 'l2'))
+
+#----------------KNN_ROC
+classifier = OneVsRestClassifier(KNeighborsClassifier(algorithm= 'auto', n_neighbors= 5, p= 1, weights= 'distance'))
+
+#-----------------GB_ROC
+classifier = OneVsRestClassifier(GradientBoostingClassifier(loss= 'deviance', max_features= 'auto', n_estimators= 110, random_state= 3))
+
+#--------------DT_ROC
+classifier = OneVsRestClassifier(DecisionTreeClassifier(min_impurity_decrease= 0.0, min_samples_leaf= 3, min_samples_split= 2, random_state= 2, max_features= None, max_depth= 10))
+
+#---------------BC_ROC
+classifier = OneVsRestClassifier(BaggingClassifier(max_features= 12, max_samples= 600, n_estimators= 190, random_state= 1))
+
+#--------------ADB_ROC
+classifier = OneVsRestClassifier(AdaBoostClassifier(algorithm= 'SAMME.R', learning_rate= 0.5, n_estimators= 225, random_state= 10))
+
+
+
+
+y_score = classifier.fit(X_train, y_train).predict_proba(X_test)
+
+fpr = dict()
+tpr = dict()
+roc_auc = dict()
+for i in range(n_classes):
+    fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i])
+    roc_auc[i] = auc(fpr[i], tpr[i])
+colors = ['blue', 'red', 'green', 'yellow']
+for i, color in zip(range(n_classes), colors):
+    plt.plot(fpr[i], tpr[i], color=color,
+             label='ROC curve of class {0} (area = {1:0.2f})'
+             ''.format(i, roc_auc[i]))
+plt.plot([0, 1], [0, 1], 'k--')
+plt.xlim([-0.05, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver operating characteristic for multi-class data')
+plt.legend(loc="lower right")
+plt.show()
+
+#-----------------Preprocessing steps
+#--------calculateNumberOfDays
+from datetime import date;
+
+# user number of days passed since user has been yelping
+
+def calculateNumOfDays(str):
+	arr = str.split('-');
+	#print(arr);
+	currdate =  date.today();
+	userJoiningDate = date(int(arr[0]), int(arr[1]), int(arr[2]));
+	numOfdays = currdate - userJoiningDate;
+	return numOfdays.days
+
+#------------------------extractfeatures
+import nltk
+from nltk.tokenize import RegexpTokenizer
+from nltk.corpus import stopwords 
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+
+tokenizer = RegexpTokenizer(r'\w+')
+
+sentimentIntensityAnalyzer = SentimentIntensityAnalyzer();
+
+def extractFeaturesFromReviews(review):
+	stop_words = set(stopwords.words('english'));
+	#Remove all stop words from a sentence.
+	#Before removing the stop words make review lowercase.
+	word_tokens = tokenizer.tokenize(review.lower());
+	filtered_sentence = [w for w in word_tokens if not w in stop_words];
+	#print(review)
+	#print(filtered_sentence)
+	#featureOne :  total number of words in a sentence
+	numOfTokens = len(filtered_sentence);
+	scores = sentimentIntensityAnalyzer.polarity_scores(review);
+	#featureTwo : total score of the review; ranges between -1 to 1 
+	compound_score = scores['compound'];
+	#print (compound_score)
+	return [numOfTokens, compound_score];
+
+#extractFeaturesFromReviews("Antionette Morgan is an artist alright! A con artist! Alley kat sucks! I went in for one of their fake specials,And i paid the nominal fee . When I brought up a question about my design,the owner Antoinette Morgan blew up calling me a dumb bitch and then told me to leave. I said gladly, and that I wanted my refund. She called me an ugly bitch and told me to read the sign, which said no refunds! I didn't even recieve the tattoo! That place is evil and gives tattoo shops in that area a bad imag!"); 
+
+#catWords.py
+import nltk
+from nltk.tokenize import RegexpTokenizer
+from nltk.corpus import stopwords 
+from collections import Counter
+
+tokenizer = RegexpTokenizer(r'\w+')
+
+def categoriseWords(review, category):
+    stop_words = set(stopwords.words('english'))
+    text = tokenizer.tokenize(review.lower())
+    filtered_sentence = [w for w in text if not w in stop_words]
+    tagged = nltk.pos_tag(filtered_sentence)
+    counts = Counter(tag for word, tag in tagged)
+
+    # normalized values
+    # total = sum(counts.values())
+    # return dict((word, float(count)/total) for word,count in counts.items())
+    
+    return counts[category]
+
+print(categoriseWords("And now for something completely different working moving", "VBG"))
+
+#numBusiRatedByUser.py
+import pandas as pd 
+from collections import Counter
+
+df = pd.read_csv('ML-Proj-Data copy.csv')
+df.insert(df.shape[1]+1, 'bcount', 0)
+
+counts = Counter(df['user_id'])
+
+for i in range(df.shape[0]):
+    # df['bcount'][i] == counts[df['user_id'][i]]
+    df.bcount.loc[i] = counts[df['user_id'][i]]
+
+print(df)
+
+#------------------------main.py
+import pandas as pd;
+from calculateNumOfDays import calculateNumOfDays;
+from extractFeaturesFromReviews import extractFeaturesFromReviews;
+from database import db
+
+df = pd.read_csv(
+	'fd8lakh.csv',
+	usecols= [
+		'review_id',
+		'user_review_count',
+		'yelping_since',
+		'user_avg_stars',
+		'user_avg_stars',
+		'review_stars',
+		'text',
+		'useful',
+		'funny',
+		'cool'
+	]);
+featureDict = {};
+for index, row in df.iterrows():
+	#if index<5:
+		featureDict['review_id'] = row['review_id'];
+		featureDict['user_review_count'] = int(row['user_review_count']);
+		featureDict['user_yelping_since'] = calculateNumOfDays(row['yelping_since']);
+		featureDict['user_avg_stars'] = row['user_avg_stars'];
+		featureDict['review_stars'] = int(row['review_stars']);
+		arr = extractFeaturesFromReviews(row['text']);
+		featureDict['total_tokens'] = arr[0];
+		featureDict['compound_score_review'] = arr[1];
+		featureDict['review_useful_upvotes'] = int(row['useful']);
+		featureDict['review_funny_upvotes'] = int(row['funny']);
+		featureDict['review_cool_upvotes'] = int(row['cool']);
+		print (index);
+		db.execute(
+			"INSERT INTO features (review_id, user_review_count, user_yelping_since, user_avg_stars, review_stars, total_tokens, compound_score_review, review_useful_upvotes, review_funny_upvotes, review_cool_upvotes) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", 
+			(
+				featureDict['review_id'],
+				featureDict['user_review_count'],
+				featureDict['user_yelping_since'],
+				featureDict['user_avg_stars'],
+				featureDict['review_stars'],
+				featureDict['total_tokens'],
+				featureDict['compound_score_review'],
+				featureDict['review_useful_upvotes'],
+				featureDict['review_funny_upvotes'],
+				featureDict['review_cool_upvotes'],
+			));
+		#print(row['text']);
+		#print (featureDict);
+	#else:
+	#	break
+
+#-------------------------------------------DATAEXTRACTION(SPARK)------------------#
+from pyspark.sql import SparkSession
+
+
+
+spark = SparkSession \
+    .builder \
+    .appName("Python Spark SQL basic example") \
+    .config("spark.some.config.option", "some-value") \
+    .getOrCreate()
+
+
+#business
+business = spark.read.json("yelp_academic_dataset_business.json")
+business1=business.select((business['name'].alias('b_name')), (business['business_id'].alias('b_id')) ,(business['review_count'].alias('b_review_count')),business['attributes'],business['categories'],(business['stars'].alias('business_stars')))
+business1.createOrReplaceTempView("business1")
+
+#users
+users = spark.read.json("yelp_academic_dataset_user.json")
+users1=users.select((users['user_id'].alias('userid')), (users['average_stars'].alias('user_avg_stars')),users['name'],(users['review_count'].alias('user_review_count')),users['useful'],users['yelping_since'],users['funny'],users['cool'])
+users1.createOrReplaceTempView("users1")
+
+
+#reviews
+reviews = spark.read.json("yelp_academic_dataset_review.json")
+reviews1=reviews.select(reviews['user_id'], reviews['review_id'],reviews['business_id'],(reviews['stars'].alias('review_stars')),reviews['text'])
+r1=reviews1.filter(reviews['stars'] == 1).limit(100000)
+r2=reviews1.filter(reviews['stars'] == 2).limit(100000)
+r3=reviews1.filter(reviews['stars'] == 3).limit(100000)
+r4=reviews1.filter(reviews['stars'] == 4).limit(100000)
+r5=reviews1.filter(reviews['stars'] == 5).limit(100000)
+review=r1.union(r2)
+review=review.union(r3)
+review=review.union(r4)
+review=review.union(r5)
+review.createOrReplaceTempView("review")
+
+#join
+sqlDF = spark.sql("SELECT * from business1,review where business1.b_id==review.business_id ")
+sqlDF.createOrReplaceTempView("sqlDF")
+sql1= spark.sql("SELECT sqlDF.review_id, sqlDF.user_id, users1.user_review_count, users1.yelping_since, users1.user_avg_stars, sqlDF.business_id, sqlDF.review_stars, sqlDF.text, users1.useful, users1.funny, users1.cool FROM sqlDF,users1 where users1.userid==sqlDF.user_id  ")
+
+
+
+sql1.toPandas().to_csv("Ml-Proj-Data.csv", header=True)
+
+
+#----------------featureselection
+from sklearn.feature_selection import chi2
+import numpy as np
+import pandas as pd
+
+# ['review_stars', 'review_funny_upvotes', 'review_useful_upvotes', 'review_cool_upvotes', 'total_tokens', 'compound_score_review', 'user_avg_stars', 'user_yelping_since', 'user_review_count']
+
+df = pd.read_csv('/Users/chiragshahi/Desktop/final_Dataset.csv', header = 0)
+
+X = df.values[:, 2:]
+y = df.values[:, 1]
+
+print(X.shape)
+
+# converting -ve values to zero for chi square test to work
+pstv_X = X[:,X.min(axis=0)>=0]
+
+y = y.astype('int')
+
+feature_scores = chi2(pstv_X, y)[0]
+print(feature_scores)
+
+from sklearn.feature_selection import SelectKBest, chi2
+import numpy as np
+import pandas as pd
+
+# ['review_stars', 'review_funny_upvotes', 'review_useful_upvotes', 'review_cool_upvotes', 'total_tokens', 'compound_score_review', 'user_avg_stars', 'user_yelping_since', 'user_review_count']
+
+df = pd.read_csv('/Users/chiragshahi/Desktop/final_Dataset.csv', header = 0)
+
+
+X = df.values[:, 2:]
+y = df.values[:, 1]
+
+y = y.astype('int')
+
+pstv_X = X[:,X.min(axis=0)>=0]
+
+X_new = SelectKBest(chi2, k=4).fit_transform(pstv_X, y)
+
+print(X_new)
+
+from sklearn.feature_selection import RFE
+from sklearn.svm import SVR
+import pandas as pd
+
+df = pd.read_csv('/Users/chiragshahi/Desktop/final_Dataset.csv', header = 0)
+
+X = df.values[:, 2:]
+y = df.values[:, 1]
+
+estimator = SVR(kernel="linear")
+selector = RFE(estimator, step=1)
+selector = selector.fit(X, y)
+
+print(selector.support_)
+print(selector.ranking_)
+
+from sklearn.feature_selection import mutual_info_classif
+import numpy as np
+import pandas as pd
+
+# ['review_stars', 'review_funny_upvotes', 'review_useful_upvotes', 'review_cool_upvotes', 'total_tokens', 'compound_score_review', 'user_avg_stars', 'user_yelping_since', 'user_review_count']
+
+df = pd.read_csv('/Users/chiragshahi/Desktop/final_Dataset.csv', header = 0)
+
+X = df.values[:, 2:]
+y = df.values[:, 1]
+
+y = y.astype('int')
+
+feature_scores = mutual_info_classif(X, y)
+print(feature_scores)
+
+from sklearn.feature_selection import f_classif
+import numpy as np
+import pandas as pd
+
+# ['review_stars', 'review_funny_upvotes', 'review_useful_upvotes', 'review_cool_upvotes', 'total_tokens', 'compound_score_review', 'user_avg_stars', 'user_yelping_since', 'user_review_count']
+
+df = pd.read_csv('/Users/chiragshahi/Desktop/final_Dataset.csv', header = 0)
+
+X = df.values[:, 2:]
+y = df.values[:, 1]
+
+y = y.astype('int')
+
+feature_scores = f_classif(X, y)[0]
+print(feature_scores)
+
